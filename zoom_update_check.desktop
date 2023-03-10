@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Zoom Update Notifier
+Comment=Check whether zoom needs to be updated
+Exec=check_zoom_update.py
+Terminal=false
+Type=Application
+Icon=Zoom
+StartupNotify=false
