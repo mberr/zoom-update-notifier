@@ -70,6 +70,11 @@ def main():
     if version_latest == version_latest:
         if args.verbose:
             print("Zoom is up-to-date")
+        if args.no_message:
+            exit(0)
+        subprocess.run(
+            ["notify-send", "-u", "low", f"Zoom is up-to-date ({version_installed})"]
+        )
     else:
         if args.verbose:
             print("Zoom needs an update")
