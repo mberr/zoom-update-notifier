@@ -67,7 +67,7 @@ def main():
     )
     if args.verbose:
         print("Latest:   ", version_latest)
-    if version_latest == version_latest:
+    if version_installed == version_latest:
         if args.verbose:
             print("Zoom is up-to-date")
         if args.no_message:
