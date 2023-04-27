@@ -56,6 +56,7 @@ def main():
         default=pathlib.Path("~", ".cache", "zoom_version.json").expanduser(),
     )
     parser.add_argument("--timeout", type=float, default=24 * 60 * 60)
+    parser.add_argument("--download-path", type=str, default="")
     args = parser.parse_args()
 
     version_installed = get_installed_version()
@@ -83,18 +84,24 @@ def main():
         else:
             url = (
                 f"https://zoom.us/client/{version_latest}/zoom_amd64.deb"
-                if args.direct_link
+                if args.direct_link or args.download_path
                 else "https://zoom.us/download"
             )
-            subprocess.run(
-                [
-                    "notify-send",
-                    "-u",
-                    "critical",
+            if args.download_path:
+                output_path = pathlib.Path(args.download_path).joinpath(
+                    f"zoom_adm64_{version_latest}.deb"
+                )
+                subprocess.run(["wget", "-O", str(output_path)])
+                message = (
+                    f"'Zoom update available ({version_installed} -> {version_latest})'",
+                    output_path,
+                )
+            else:
+                message = (
                     f"'Zoom update available ({version_installed} -> {version_latest})'",
                     url,
-                ]
-            )
+                )
+            subprocess.run(["notify-send", "-u", "critical", *message])
 
 
 if __name__ == "__main__":
