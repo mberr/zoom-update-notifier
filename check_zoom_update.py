@@ -7,6 +7,7 @@ import json
 import pathlib
 import re
 import subprocess
+import tempfile
 import time
 
 
@@ -56,7 +57,7 @@ def main():
         default=pathlib.Path("~", ".cache", "zoom_version.json").expanduser(),
     )
     parser.add_argument("--timeout", type=float, default=24 * 60 * 60)
-    parser.add_argument("--download-path", type=str, default="")
+    parser.add_argument("--download-root", type=str, default=tempfile.gettempdir())
     args = parser.parse_args()
 
     version_installed = get_installed_version()
@@ -84,11 +85,11 @@ def main():
         else:
             url = (
                 f"https://zoom.us/client/{version_latest}/zoom_amd64.deb"
-                if args.direct_link or args.download_path
+                if args.direct_link or args.download_root
                 else "https://zoom.us/download"
             )
             if args.download_path:
-                output_path = pathlib.Path(args.download_path).joinpath(
+                output_path = pathlib.Path(args.download_root).joinpath(
                     f"zoom_adm64_{version_latest}.deb"
                 )
                 subprocess.run(["wget", "-O", str(output_path)])
