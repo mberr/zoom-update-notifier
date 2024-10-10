@@ -133,7 +133,7 @@ class Manager:
             data = json.load(f)
         return data
 
-    def _check(self, name: str, package: Package, force: bool) -> None:
+    def _check(self, name: str, force: bool) -> None:
         version_installed = self.get_installed_version(name)
         if self.verbose:
             print(f"# Package: {name!r}")
@@ -166,7 +166,8 @@ class Manager:
                     output_path = pathlib.Path(self.download_root).joinpath(
                         f"{name}_{version_latest}.deb"
                     )
-                    subprocess.run(["wget", "-O", str(output_path), url])
+                    output_path.parent.mkdir(exist_ok=True, parents=True)
+                    subprocess.run(["wget", "-O", str(output_path), url], check=True)
                     message = (
                         f"'{name} update available ({version_installed} -> {version_latest})'",
                         output_path,
@@ -179,8 +180,8 @@ class Manager:
                 subprocess.run(["notify-send", "-u", "critical", *message])
 
     def check(self, force: bool = False):
-        for name, package in self._packages.items():
-            self._check(name=name, package=package, force=force)
+        for name in self._packages:
+            self._check(name=name, force=force)
 
 
 def main():
