@@ -81,6 +81,36 @@ class VSCode(Package):
             version = m.group(2)
             return PackageMetadata(version=version, url=url)
 
+@dataclasses.dataclass
+class Slack(Package):
+    name: str = "slack-desktop"
+
+    def get_latest_version(self) -> PackageMetadata:
+        """Get the latest version of Slack (via unofficial REST API.)"""
+        with tempfile.NamedTemporaryFile() as temporary_file:
+            subprocess.run(
+                [
+                    "curl",
+                    "https://slack.com/downloads/instructions/linux?ddl=1&build=deb"
+                    "-s",
+                    "-L",
+                    "-o",
+                    temporary_file.name,
+                ],
+                check=True,
+            )
+            text = pathlib.Path(temporary_file.name).read_text()
+            # for some reason, we get the rpm version here...
+            # https://downloads.slack-edge.com/desktop-releases/linux/x64/4.46.101/slack-4.46.101-0.1.el8.x86_64.rpm
+            # https://downloads.slack-edge.com/desktop-releases/linux/x64/4.46.101/slack-desktop-4.46.101-amd64.deb
+            m = re.search(
+                r'href="https://downloads.slack-edge.com/desktop-releases/linux/x64/(?P<version>.*?)/slack-.*?-.*.x86_64.rpm"',
+                text,
+                flags=re.MULTILINE,
+            )
+            version = m.group("version")
+            url = f"https://downloads.slack-edge.com/desktop-releases/linux/x64/{version}/slack-desktop-{version}-amd64.deb"
+            return PackageMetadata(version=version, url=url)
 
 @dataclasses.dataclass
 class Manager:
@@ -200,7 +230,11 @@ def main():
     args = parser.parse_args()
     cache_root = pathlib.Path(args.cache_root)
     manager = Manager(
-        packages=[Zoom(), VSCode()], cache_root=cache_root, timeout=args.timeout
+        packages=[
+            Zoom(), 
+            # VSCode(), # now has a package source
+            Slack(),
+        ], cache_root=cache_root, timeout=args.timeout
     )
     manager.check(force=args.force)
 
