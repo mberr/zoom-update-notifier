@@ -113,6 +113,34 @@ class Slack(Package):
             return PackageMetadata(version=version, url=url)
 
 @dataclasses.dataclass
+class Glab(Package):
+    name: str = "glab"
+
+    def get_latest_version(self) -> PackageMetadata:
+        """Get the latest version of glab (via GitLab Releases API.)"""
+        with tempfile.NamedTemporaryFile() as temporary_file:
+            subprocess.run(
+                [
+                    "curl",
+                    "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases/permalink/latest",
+                    "-s",
+                    "-L",
+                    "-o",
+                    temporary_file.name,
+                ],
+                check=True,
+            )
+            data = json.loads(pathlib.Path(temporary_file.name).read_text())
+        version = data["tag_name"].lstrip("v")
+        asset_name = f"glab_{version}_linux_amd64.deb"
+        link = next(
+            link for link in data["assets"]["links"] if link["name"] == asset_name
+        )
+        url = link.get("direct_asset_url", link["url"])
+        return PackageMetadata(version=version, url=url)
+
+
+@dataclasses.dataclass
 class Manager:
     packages: Package | Collection[Package]
     download: bool = True
@@ -231,9 +259,10 @@ def main():
     cache_root = pathlib.Path(args.cache_root)
     manager = Manager(
         packages=[
-            Zoom(), 
+            Zoom(),
             # VSCode(), # now has a package source
             Slack(),
+            Glab(),
         ], cache_root=cache_root, timeout=args.timeout
     )
     manager.check(force=args.force)
