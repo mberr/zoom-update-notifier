@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import abc
 import argparse
-from collections.abc import Collection, Mapping
 import dataclasses
 import json
 import pathlib
@@ -13,6 +12,7 @@ import re
 import subprocess
 import tempfile
 import time
+from collections.abc import Collection, Mapping
 from typing import TypedDict
 
 
@@ -28,6 +28,18 @@ class Package(abc.ABC):
     def get_latest_version(self) -> PackageMetadata:
         """Get the latest version."""
         raise NotImplementedError
+
+    def get_installed_version(self) -> str:
+        """Get the installed version (default: via `apt show`)."""
+        re_version = re.compile(r"Version: ([\d.-]+)$", flags=re.MULTILINE)
+        p = subprocess.run(["apt", "show", self.name], capture_output=True)
+        p.check_returncode()
+        stdout = p.stdout.decode(encoding="utf8")
+        if m := re_version.search(stdout):
+            return m.group(1).split("-")[0]
+        else:
+            print(f"Could not parse installed version from:\n{stdout}")
+            exit(-1)
 
 
 @dataclasses.dataclass
@@ -82,6 +94,46 @@ class Glab(Package):
 
 
 @dataclasses.dataclass
+class Pi(Package):
+    name: str = "pi"
+
+    def get_latest_version(self) -> PackageMetadata:
+        """Get the latest version of pi (via GitHub Releases API.)"""
+        with tempfile.NamedTemporaryFile() as temporary_file:
+            subprocess.run(
+                [
+                    "curl",
+                    "https://api.github.com/repos/earendil-works/pi/releases/latest",
+                    "-s",
+                    "-L",
+                    "-o",
+                    temporary_file.name,
+                ],
+                check=True,
+            )
+            data = json.loads(pathlib.Path(temporary_file.name).read_text())
+        version = data["tag_name"].lstrip("v")
+        asset_name = "pi-linux-x64.tar.gz"
+        asset = next(
+            asset for asset in data["assets"] if asset["name"] == asset_name
+        )
+        url = asset["browser_download_url"]
+        return PackageMetadata(version=version, url=url)
+
+    def get_installed_version(self) -> str:
+        """Get the installed version of pi (via `pi --version`)."""
+        re_version = re.compile(r"(\d+\.\d+\.\d+)")
+        p = subprocess.run(["pi", "--version"], capture_output=True)
+        p.check_returncode()
+        stdout = p.stdout.decode(encoding="utf8")
+        if m := re_version.search(stdout):
+            return m.group(1)
+        else:
+            print(f"Could not parse installed version from:\n{stdout}")
+            exit(-1)
+
+
+@dataclasses.dataclass
 class Manager:
     packages: Package | Collection[Package]
     download: bool = True
@@ -105,15 +157,7 @@ class Manager:
 
     def get_installed_version(self, name: str) -> str:
         """Get the installed version."""
-        re_version = re.compile(r"Version: ([\d.-]+)$", flags=re.MULTILINE)
-        p = subprocess.run(["apt", "show", name], capture_output=True)
-        p.check_returncode()
-        stdout = p.stdout.decode(encoding="utf8")
-        if m := re_version.search(stdout):
-            return m.group(1).split("-")[0]
-        else:
-            print(f"Could not parse installed version from:\n{stdout}")
-            exit(-1)
+        return self._packages[name].get_installed_version()
 
     def get_latest_version(self, name: str, force: bool = False) -> PackageMetadata:
         """Get the latest version."""
@@ -162,8 +206,9 @@ class Manager:
             else:
                 url = meta["url"]
                 if self.download_root:
+                    suffix = "".join(pathlib.PurePosixPath(url).suffixes)
                     output_path = pathlib.Path(self.download_root).joinpath(
-                        f"{name}_{version_latest}.deb"
+                        f"{name}_{version_latest}{suffix}"
                     )
                     output_path.parent.mkdir(exist_ok=True, parents=True)
                     subprocess.run(["wget", "-O", str(output_path), url], check=True)
@@ -199,7 +244,7 @@ def main():
     args = parser.parse_args()
     cache_root = pathlib.Path(args.cache_root)
     manager = Manager(
-        packages=[Zoom(), Glab()], cache_root=cache_root, timeout=args.timeout
+        packages=[Zoom(), Glab(), Pi()], cache_root=cache_root, timeout=args.timeout
     )
     manager.check(force=args.force)
 
