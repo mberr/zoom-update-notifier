@@ -1,13 +1,18 @@
-# Zoom Update Notifier for Ubuntu
+# Package Update Notifier for Ubuntu
 
-This repo contains some small utilities to notify about new Zoom versions. It assumes
+This repo contains a small utility to notify about new versions of Zoom, GitLab CLI,
+Pi, and Codex. It assumes
 
 - Zoom is installed manually via the `.deb` file available from the [official Download page](https://zoom.us/download).
 - Python 3 is available
 - `apt`, `curl` and `notify-send` are available
 
-It checks at most once per day if the version returned by the [REST API](https://zoom.us/rest/download?os=linux) matches
-the one of the package, and sends a notification when this is not the case.
+Codex is checked through its GitHub releases. Its update notification points to the
+[official standalone installer](https://chatgpt.com/codex/install.sh), which is also
+the update method recommended by Codex itself.
+
+It checks at most once per day whether each package's release API reports a newer
+version than the one installed locally, and sends a notification when it does.
 
 # Installation
 

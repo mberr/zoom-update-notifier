@@ -134,6 +134,43 @@ class Pi(Package):
 
 
 @dataclasses.dataclass
+class Codex(Package):
+    name: str = "codex"
+
+    def get_latest_version(self) -> PackageMetadata:
+        """Get the latest version of Codex (via GitHub Releases API)."""
+        with tempfile.NamedTemporaryFile() as temporary_file:
+            subprocess.run(
+                [
+                    "curl",
+                    "https://api.github.com/repos/openai/codex/releases/latest",
+                    "-s",
+                    "-L",
+                    "-o",
+                    temporary_file.name,
+                ],
+                check=True,
+            )
+            data = json.loads(pathlib.Path(temporary_file.name).read_text())
+        return PackageMetadata(
+            version=data["name"].lstrip("v"),
+            url="https://chatgpt.com/codex/install.sh",
+        )
+
+    def get_installed_version(self) -> str:
+        """Get the installed version of Codex (via `codex --version`)."""
+        re_version = re.compile(r"codex-cli (\d+\.\d+\.\d+)")
+        p = subprocess.run(["codex", "--version"], capture_output=True)
+        p.check_returncode()
+        stdout = p.stdout.decode(encoding="utf8")
+        if m := re_version.search(stdout):
+            return m.group(1)
+        else:
+            print(f"Could not parse installed version from:\n{stdout}")
+            exit(-1)
+
+
+@dataclasses.dataclass
 class Manager:
     packages: Package | Collection[Package]
     download: bool = True
@@ -244,7 +281,9 @@ def main():
     args = parser.parse_args()
     cache_root = pathlib.Path(args.cache_root)
     manager = Manager(
-        packages=[Zoom(), Glab(), Pi()], cache_root=cache_root, timeout=args.timeout
+        packages=[Zoom(), Glab(), Pi(), Codex()],
+        cache_root=cache_root,
+        timeout=args.timeout,
     )
     manager.check(force=args.force)
 
